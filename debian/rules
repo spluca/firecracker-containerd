@@ -84,6 +84,10 @@ override_dh_usrlocal:
 	# This debhelper script expects /usr/local to be a directory tree, not binary paths
 	@echo "Skipping dh_usrlocal (custom /usr/local/bin paths)"
 
+override_dh_dwz:
+	# Skip dwz - debug symbol optimization fails on Go binaries
+	@echo "Skipping dh_dwz (Go binaries)"
+
 override_dh_installsystemd:
 	dh_installsystemd --name=firecracker-containerd --no-start --no-enable
 
