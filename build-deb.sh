@@ -44,7 +44,8 @@ echo "==> Building package..."
 # Use dpkg-buildpackage directly instead of debuild
 # -us -uc: skip signing
 # -b: binary only
-dpkg-buildpackage -us -uc -b
+# -d: skip build dependency checks (Go is installed via setup-go action, not system package)
+dpkg-buildpackage -us -uc -b -d
 
 echo ""
 echo "==> Package built successfully!"
