@@ -41,16 +41,18 @@ jobs:
       - name: Build Debian package
         run: |
           ./build-deb.sh
+          # Copy artifacts to workspace for upload
+          mkdir -p deb-artifacts
+          cp ../firecracker-containerd_*.deb deb-artifacts/ 2>/dev/null || true
+          cp ../firecracker-containerd_*.buildinfo deb-artifacts/ 2>/dev/null || true
+          cp ../firecracker-containerd_*.changes deb-artifacts/ 2>/dev/null || true
 
       - name: Upload .deb artifact
         if: success()
         uses: actions/upload-artifact@v4
         with:
           name: firecracker-containerd
-          path: |
-            ../firecracker-containerd_*.deb
-            ../firecracker-containerd_*.buildinfo
-            ../firecracker-containerd_*.changes
+          path: deb-artifacts/
           retention-days: 30
           if-no-files-found: error
 
