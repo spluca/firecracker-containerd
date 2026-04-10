@@ -440,3 +440,18 @@ esgz-test-image: stargz-snapshotter
 
 push-esgz-test-image:
 	$(CTR_REMOTE_BIN) image push -u $(GH_USER):$(GH_PERSONAL_ACCESS_TOKEN) $(DEFAULT_ESGZ_IMAGE) $(DEFAULT_ESGZ_IMAGE)
+
+##########################
+# Debian packaging
+##########################
+.PHONY: build-deb
+build-deb:
+	./build-deb.sh
+
+.PHONY: install-deb
+install-deb: build-deb
+	sudo dpkg -i ../firecracker-containerd_*.deb
+
+.PHONY: uninstall-deb
+uninstall-deb:
+	sudo dpkg --purge firecracker-containerd || true

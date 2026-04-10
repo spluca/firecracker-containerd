@@ -1,0 +1,52 @@
+# firecracker-containerd systemd service
+[Unit]
+Description=Firecracker Containerd - Firecracker runtime for containerd
+Documentation=https://github.com/firecracker-microvm/firecracker-containerd
+After=network-online.target
+Wants=network-online.target
+# The agent depends on this service being available
+Before=mikrom-agent.service
+
+[Service]
+Type=notify
+ExecStart=/usr/local/bin/firecracker-containerd --config /etc/firecracker-containerd/config.toml
+ExecReload=/bin/kill -USR1 $MAINPID
+Restart=on-failure
+RestartSec=5
+StartLimitInterval=300
+StartLimitBurst=5
+
+# Working directory
+WorkingDirectory=/var/lib/firecracker-containerd
+
+# Resource limits
+LimitNOFILE=65536
+LimitNPROC=8192
+LimitMEMLOCK=infinity
+
+# Capabilities needed:
+# - CAP_SYS_ADMIN: Mount operations for devmapper
+# - CAP_NET_ADMIN: Network configuration
+# - CAP_KILL: Signal management
+CapabilityBoundingSet=CAP_SYS_ADMIN CAP_NET_ADMIN CAP_KILL
+AmbientCapabilities=CAP_SYS_ADMIN CAP_NET_ADMIN CAP_KILL
+
+# Security
+NoNewPrivileges=false
+ProtectSystem=full
+ProtectHome=yes
+PrivateTmp=yes
+
+# Allow access to devices
+DeviceAllow=/dev/kvm rw
+DeviceAllow=/dev/mapper/control rw
+DeviceAllow=/dev/net/tun rw
+DevicePolicy=closed
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=firecracker-containerd
+
+[Install]
+WantedBy=multi-user.target

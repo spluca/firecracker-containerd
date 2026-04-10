@@ -1,0 +1,80 @@
+# firecracker-containerd configuration file
+# This file is installed to /etc/firecracker-containerd/config.toml
+
+# Enable the firecracker runtime
+[plugins]
+  [plugins."io.containerd.snapshotter.v1.devmapper"]
+    pool_name = "fc-dev-pool"
+    base_image_size = "10GB"
+    root_path = "/var/lib/firecracker-containerd/snapshotter/devmapper"
+
+  [plugins."io.containerd.grpc.v1.cri"]
+    # Disable CRI plugin - this is not a Kubernetes runtime
+    disable = true
+
+  [plugins."aws.firecracker"]
+    # Path to Firecracker binary
+    firecracker_binary_path = "/usr/local/bin/firecracker"
+
+    # Path to kernel image
+    kernel_image_path = "/var/lib/firecracker-containerd/runtime/vmlinux.bin"
+
+    # Kernel arguments
+    kernel_args = "console=ttyS0 noapic reboot=k panic=1 pci=off nomodules rw"
+
+    # Default root drive (will be overridden per-VM)
+    root_drive = ""
+
+    # Disable hyperthreading (security mitigation)
+    ht_enabled = false
+
+    # Jailer configuration
+    [plugins."aws.firecracker".jailer]
+      enabled = true
+      name = "jailer"
+      # Base directory for jailer root
+      base_path = "/var/lib/firecracker-containerd/jailer"
+      # Use devicemapper snapshotter
+      snapshotter = "devmapper"
+      # Cgroup path for the jailer
+      cgroup_path = "/firecracker"
+      # Default jailer options
+      options = ["--debug"]
+
+    # Network configuration
+    [plugins."aws.firecracker".network]
+      # CNI network configuration directory
+      cni_conf_dir = "/etc/cni/conf.d"
+      # CNI binary directory
+      cni_bin_dir = "/opt/cni/bin"
+      # Network interface name (optional, auto-detected if empty)
+      ifname = ""
+
+    # Debug configuration
+    [plugins."aws.firecracker".debug]
+      # Enable debug logging
+      log_level = "info"
+
+    # VM configuration defaults
+    [plugins."aws.firecracker".vm]
+      # Default number of vCPUs
+      default_vcpus = 2
+      # Default memory size in MiB
+      default_memory_mb = 512
+      # Default disk size in MiB
+      default_disk_size_mb = 512
+
+# containerd configuration
+version = 2
+root = "/var/lib/firecracker-containerd/containerd"
+state = "/run/firecracker-containerd"
+
+# Metrics configuration
+[metrics]
+  address = "0.0.0.0:1338"
+  grpc_histogram = true
+
+# gRPC configuration
+[grpc]
+  address = "/run/firecracker-containerd/containerd.sock"
+  tcp_address = ""
