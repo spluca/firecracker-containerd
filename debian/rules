@@ -41,13 +41,6 @@ override_dh_auto_test:
 override_dh_auto_install:
 	# Install main binaries
 	install -D -m 0755 agent/agent debian/firecracker-containerd/usr/local/bin/firecracker-containerd
-	install -D -m 0755 bin/firecracker-containerd debian/firecracker-containerd/usr/local/bin/firecracker-containerd 2>/dev/null || \
-		install -D -m 0755 agent/agent debian/firecracker-containerd/usr/local/bin/firecracker-containerd
-	
-	# Install firecracker-agent if built
-	if [ -f agent/agent ]; then \
-		install -D -m 0755 agent/agent debian/firecracker-containerd/usr/local/bin/firecracker-agent; \
-	fi
 	
 	# Install firecracker binary from submodule if available
 	if [ -f _submodules/firecracker/build/cargo_target/*/release/firecracker ]; then \
@@ -85,6 +78,11 @@ override_dh_auto_install:
 	install -d -m 0755 debian/firecracker-containerd/var/lib/firecracker-containerd/containerd
 	install -d -m 0755 debian/firecracker-containerd/var/lib/firecracker-containerd/jailer
 	install -d -m 0755 debian/firecracker-containerd/var/log/firecracker-containerd
+
+override_dh_usrlocal:
+	# Skip dh_usrlocal - we intentionally use /usr/local/bin
+	# This debhelper script expects /usr/local to be a directory tree, not binary paths
+	@echo "Skipping dh_usrlocal (custom /usr/local/bin paths)"
 
 override_dh_installsystemd:
 	dh_installsystemd --name=firecracker-containerd --no-start --no-enable
