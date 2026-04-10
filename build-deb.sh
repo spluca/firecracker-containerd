@@ -32,8 +32,7 @@ check_dep() {
     fi
 }
 
-check_dep dpkg-deb
-check_dep debuild
+check_dep dpkg-buildpackage
 check_dep go
 check_dep git
 check_dep make
@@ -42,7 +41,10 @@ echo "==> Cleaning previous builds..."
 rm -rf debian/.debhelper debian/firecracker-containerd debian/*.log debian/*.substvars debian/files 2>/dev/null || true
 
 echo "==> Building package..."
-debuild -us -uc -b
+# Use dpkg-buildpackage directly instead of debuild
+# -us -uc: skip signing
+# -b: binary only
+dpkg-buildpackage -us -uc -b
 
 echo ""
 echo "==> Package built successfully!"
