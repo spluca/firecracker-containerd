@@ -1,0 +1,61 @@
+#!/bin/sh
+set -e
+
+# Create firecracker user and group if they don't exist
+if ! getent group firecracker >/dev/null 2>&1; then
+  addgroup --system firecracker
+fi
+
+if ! getent passwd firecracker >/dev/null 2>&1; then
+  adduser --system --ingroup firecracker --home /var/lib/firecracker-containerd \
+    --no-create-home --gecos "Firecracker Containerd" firecracker
+fi
+
+# Create required directories
+mkdir -p /var/lib/firecracker-containerd/runtime
+mkdir -p /var/lib/firecracker-containerd/snapshotter
+mkdir -p /var/lib/firecracker-containerd/containerd
+mkdir -p /var/lib/firecracker-containerd/jailer
+mkdir -p /var/log/firecracker-containerd
+
+# Set ownership
+chown -R root:root /var/lib/firecracker-containerd
+chown -R firecracker:firecracker /var/lib/firecracker-containerd/jailer
+
+# Set permissions on config
+chown root:firecracker /etc/firecracker-containerd
+chmod 750 /etc/firecracker-containerd
+chown root:firecracker /etc/firecracker-containerd/config.toml
+chmod 640 /etc/firecracker-containerd/config.toml
+
+# Add firecracker user to kvm group if kvm exists
+if [ -e /dev/kvm ]; then
+  adduser firecracker kvm 2>/dev/null || true
+fi
+
+# Enable kernel modules if needed
+modprobe -a tun br_netfilter kvm 2>/dev/null || true
+
+# Enable IP forwarding
+if [ ! -f /etc/sysctl.d/99-firecracker-containerd.conf ]; then
+  cat >/etc/sysctl.d/99-firecracker-containerd.conf <<EOF
+# Firecracker Containerd - Enable IP forwarding
+net.ipv4.ip_forward = 1
+net.ipv6.conf.all.forwarding = 1
+EOF
+fi
+sysctl -p /etc/sysctl.d/99-firecracker-containerd.conf 2>/dev/null || true
+
+# Setup CNI directories with correct permissions
+mkdir -p /etc/cni/conf.d
+mkdir -p /opt/cni/bin
+chown -R root:root /etc/cni /opt/cni
+
+# Reload systemd daemon
+if [ -d /run/systemd/system ]; then
+  systemctl daemon-reload || true
+fi
+
+#DEBHELPER#
+
+exit 0

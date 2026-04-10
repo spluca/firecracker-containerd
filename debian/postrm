@@ -1,0 +1,25 @@
+#!/bin/sh
+set -e
+
+# Remove user and group only if purging
+if [ "$1" = "purge" ]; then
+  # Remove logs and data
+  rm -rf /var/log/firecracker-containerd
+  rm -rf /var/lib/firecracker-containerd/jailer/*
+
+  # Remove sysctl config
+  rm -f /etc/sysctl.d/99-firecracker-containerd.conf
+
+  # Remove user and group
+  if getent passwd firecracker >/dev/null 2>&1; then
+    deluser --quiet firecracker || true
+  fi
+
+  if getent group firecracker >/dev/null 2>&1; then
+    delgroup --quiet firecracker || true
+  fi
+fi
+
+#DEBHELPER#
+
+exit 0

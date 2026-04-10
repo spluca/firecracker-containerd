@@ -1,0 +1,93 @@
+#!/usr/bin/make -f
+
+# Uncomment this to turn on verbose mode.
+#export DH_VERBOSE=1
+
+export CGO_ENABLED := 0
+export GOCACHE := /tmp/go-build
+export GOPATH := $(CURDIR)/go
+export GO111MODULE := on
+export INSTALLROOT := /usr/local
+
+# Build all components including submodules
+%:
+	dh $@
+
+override_dh_auto_clean:
+	dh_auto_clean
+	# Clean submodules
+	for d in agent runtime examples firecracker-control snapshotter docker-credential-mmds volume; do \
+		$(MAKE) -C $$d clean 2>/dev/null || true; \
+	done
+	chmod -R u+w $(GOPATH) 2>/dev/null || true
+	rm -rf $(GOPATH) || true
+	rm -rf bin || true
+
+override_dh_auto_build:
+	# Initialize submodules if not already done
+	git submodule update --init --recursive _submodules/firecracker 2>/dev/null || true
+	git submodule update --init --recursive _submodules/runc 2>/dev/null || true
+	
+	# Build all components
+	$(MAKE) all
+	
+	# Build CNI plugins
+	$(MAKE) cni-bins
+
+override_dh_auto_test:
+	# Skip tests during package build (run separately with: make test)
+	@echo "Skipping tests (run separately with: make test)"
+
+override_dh_auto_install:
+	# Install main binaries
+	install -D -m 0755 agent/agent debian/firecracker-containerd/usr/local/bin/firecracker-containerd
+	install -D -m 0755 bin/firecracker-containerd debian/firecracker-containerd/usr/local/bin/firecracker-containerd 2>/dev/null || \
+		install -D -m 0755 agent/agent debian/firecracker-containerd/usr/local/bin/firecracker-containerd
+	
+	# Install firecracker-agent if built
+	if [ -f agent/agent ]; then \
+		install -D -m 0755 agent/agent debian/firecracker-containerd/usr/local/bin/firecracker-agent; \
+	fi
+	
+	# Install firecracker binary from submodule if available
+	if [ -f _submodules/firecracker/build/cargo_target/*/release/firecracker ]; then \
+		install -D -m 0755 _submodules/firecracker/build/cargo_target/*/release/firecracker \
+			debian/firecracker-containerd/usr/local/bin/firecracker; \
+	elif [ -f _submodules/firecracker/bin/firecracker ]; then \
+		install -D -m 0755 _submodules/firecracker/bin/firecracker \
+			debian/firecracker-containerd/usr/local/bin/firecracker; \
+	fi
+	
+	# Install CNI binaries
+	install -d -m 0755 debian/firecracker-containerd/opt/cni/bin
+	for bin in bin/bridge bin/ptp bin/host-local bin/firewall bin/tc-redirect-tap bin/loopback; do \
+		if [ -f $$bin ]; then \
+			install -m 0755 $$bin debian/firecracker-containerd/opt/cni/bin/; \
+		fi; \
+	done
+	
+	# Install systemd service
+	install -D -m 0644 config/firecracker-containerd.service \
+		debian/firecracker-containerd/lib/systemd/system/firecracker-containerd.service
+	
+	# Install configuration
+	install -D -m 0644 config/config.toml \
+		debian/firecracker-containerd/etc/firecracker-containerd/config.toml
+	
+	# Install CNI network config
+	install -D -m 0644 tools/demo/fcnet.conflist \
+		debian/firecracker-containerd/etc/cni/conf.d/fcnet.conflist 2>/dev/null || true
+	
+	# Create required directories
+	install -d -m 0755 debian/firecracker-containerd/var/lib/firecracker-containerd
+	install -d -m 0755 debian/firecracker-containerd/var/lib/firecracker-containerd/runtime
+	install -d -m 0755 debian/firecracker-containerd/var/lib/firecracker-containerd/snapshotter
+	install -d -m 0755 debian/firecracker-containerd/var/lib/firecracker-containerd/containerd
+	install -d -m 0755 debian/firecracker-containerd/var/lib/firecracker-containerd/jailer
+	install -d -m 0755 debian/firecracker-containerd/var/log/firecracker-containerd
+
+override_dh_installsystemd:
+	dh_installsystemd --name=firecracker-containerd --no-start --no-enable
+
+override_dh_builddeb:
+	dh_builddeb -- -Zgzip

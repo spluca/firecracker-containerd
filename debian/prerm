@@ -1,0 +1,11 @@
+#!/bin/sh
+set -e
+
+# Stop the service if running
+if [ -d /run/systemd/system ]; then
+    deb-systemd-invoke stop firecracker-containerd.service || true
+fi
+
+#DEBHELPER#
+
+exit 0

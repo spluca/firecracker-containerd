@@ -1,0 +1,11 @@
+firecracker-containerd (0.1.0-1) trixie; urgency=medium
+
+  * Initial release for Mikrom platform
+  * Includes firecracker-containerd daemon
+  * Includes firecracker-agent binary
+  * systemd service file for automatic startup
+  * CNI plugins for VM networking
+  * Default configuration with devmapper snapshotter
+  * Integration with mikrom-agent via containerd socket
+
+ -- Antonio Pardo <apardo@spluca.org>  Fri, 10 Apr 2026 16:00:00 +0200

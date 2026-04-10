@@ -1,3 +1,9 @@
 *
 !.gitignore
 !source/
+!changelog
+!control
+!rules
+!postinst
+!prerm
+!postrm

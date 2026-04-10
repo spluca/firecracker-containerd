@@ -1,0 +1,40 @@
+Source: firecracker-containerd
+Section: admin
+Priority: optional
+Maintainer: Antonio Pardo <apardo@spluca.org>
+Build-Depends: debhelper-compat (= 13),
+               golang-go,
+               docker.io
+Standards-Version: 4.7.0
+Homepage: https://github.com/firecracker-microvm/firecracker-containerd
+Vcs-Git: https://github.com/firecracker-microvm/firecracker-containerd.git
+Vcs-Browser: https://github.com/firecracker-microvm/firecracker-containerd
+Rules-Requires-Root: no
+
+Package: firecracker-containerd
+Architecture: amd64
+Depends: ${shlibs:Depends},
+         ${misc:Depends},
+         containerd (>= 2.0),
+         firecracker,
+         iproute2,
+         iptables,
+         bridge-utils,
+         cni-plugins
+Recommends: linux-image-generic (>= 5.10)
+Suggests: firecracker-containerd-doc
+Description: containerd runtime shim for Firecracker microVMs
+ Firecracker-containerd provides a containerd runtime shim that allows
+ containerd to manage Firecracker microVMs using the OCI runtime spec.
+ .
+ It enables running container workloads inside Firecracker VMs with
+ minimal overhead, providing strong isolation with container-like
+ developer experience.
+ .
+ This package includes:
+  * firecracker-containerd daemon
+  * firecracker-agent binary
+  * Default configuration and systemd service
+  * CNI plugins for VM networking
+ .
+ Part of the Mikrom platform (https://www.mikrom.es)
