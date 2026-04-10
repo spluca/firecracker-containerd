@@ -1,0 +1,80 @@
+name: Debian Package
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-deb:
+    permissions:
+      contents: read
+    name: Build Debian package
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            debhelper \
+            devscripts \
+            build-essential \
+            pkg-config \
+            libdevmapper-dev \
+            libseccomp-dev
+
+      - name: Build Debian package
+        run: |
+          ./build-deb.sh
+
+      - name: Upload .deb artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: firecracker-containerd
+          path: |
+            ../firecracker-containerd_*.deb
+            ../firecracker-containerd_*.buildinfo
+            ../firecracker-containerd_*.changes
+          retention-days: 30
+          if-no-files-found: error
+
+  publish-deb:
+    permissions:
+      contents: write
+    name: Publish to GitHub Releases
+    runs-on: ubuntu-24.04
+    needs: build-deb
+    if: startsWith(github.ref, 'refs/tags/')
+
+    steps:
+      - name: Download .deb artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: firecracker-containerd
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            *.deb
+            *.buildinfo
+            *.changes
+          generate_release_notes: true
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-rc') || contains(github.ref_name, '-beta') || contains(github.ref_name, '-alpha') }}
