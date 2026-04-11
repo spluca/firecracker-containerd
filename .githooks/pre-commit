@@ -1,0 +1,116 @@
+#!/usr/bin/env bash
+#
+# Pre-commit hook for firecracker-containerd
+# Runs the same checks as the CI pipeline to catch failures before pushing.
+#
+# Install:
+#   cp .githooks/pre-commit .git/hooks/pre-commit
+#   chmod +x .git/hooks/pre-commit
+#
+# Or create a symlink:
+#   ln -sf ../../.githooks/pre-commit .git/hooks/pre-commit
+
+set -euo pipefail
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m'
+
+pass()  { echo -e "  ${GREEN}✓${NC} $1"; }
+fail()  { echo -e "  ${RED}✗${NC} $1"; }
+warn()  { echo -e "  ${YELLOW}⚠${NC} $1"; }
+
+echo "========================================"
+echo "Pre-commit checks"
+echo "========================================"
+
+# Only check staged files
+STAGED=$(git diff --cached --name-only --diff-filter=ACM 2>/dev/null || true)
+
+if [ -z "$STAGED" ]; then
+    echo "No staged files to check."
+    exit 0
+fi
+
+FAILED=0
+
+# --- 1. License headers (ltag) ---
+echo ""
+echo "1. Checking license headers..."
+if make lint >/dev/null 2>&1; then
+    pass "License headers OK"
+else
+    fail "Missing license headers"
+    echo "  Run 'make lint' to see details"
+    echo "  Fix with: make fix-ltag (if available) or add headers manually"
+    FAILED=1
+fi
+
+# --- 2. go mod tidy ---
+echo ""
+echo "2. Checking go mod tidy..."
+if make tidy >/dev/null 2>&1; then
+    TIDY_DIFF=$(git diff --name-only go.mod go.sum 2>/dev/null || true)
+    if [ -z "$TIDY_DIFF" ]; then
+        pass "go.mod/go.sum up to date"
+    else
+        fail "go.mod/go.sum need tidying"
+        echo "  Run: go mod tidy"
+        FAILED=1
+    fi
+else
+    fail "go mod tidy failed"
+    FAILED=1
+fi
+
+# --- 3. Proto generation ---
+echo ""
+echo "3. Checking proto generation..."
+if make proto >/dev/null 2>&1; then
+    PROTO_DIFF=$(git diff --name-only 2>/dev/null | grep -v "^\\.git/" || true)
+    if [ -z "$PROTO_DIFF" ]; then
+        pass "Proto files up to date"
+    else
+        fail "Proto files need regeneration"
+        echo "  Run: make proto"
+        echo "  Changed: $PROTO_DIFF"
+        FAILED=1
+    fi
+else
+    warn "Proto generation failed (may be expected if protoc not installed)"
+    echo "  CI will check this; install protoc to validate locally"
+fi
+
+# --- 4. Go build ---
+echo ""
+echo "4. Checking build..."
+if go build ./... >/dev/null 2>&1; then
+    pass "Build OK"
+else
+    fail "Build failed"
+    go build ./... 2>&1 | head -5 | sed 's/^/  /'
+    FAILED=1
+fi
+
+# --- 5. Go tests ---
+echo ""
+echo "5. Running tests..."
+if DISABLE_ROOT_TESTS=1 go test ./... >/dev/null 2>&1; then
+    pass "Tests pass"
+else
+    fail "Tests failed"
+    DISABLE_ROOT_TESTS=1 go test ./... 2>&1 | tail -10 | sed 's/^/  /'
+    FAILED=1
+fi
+
+echo ""
+echo "========================================"
+if [ $FAILED -ne 0 ]; then
+    echo -e "${RED}✗ Pre-commit checks FAILED${NC}"
+    echo "Fix the issues above before committing."
+    exit 1
+else
+    echo -e "${GREEN}✓ All pre-commit checks passed${NC}"
+    exit 0
+fi
